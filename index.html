@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma Interactivo - Sol: The Last Song</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js for premium KPI metrics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0b0f;
+            --panel-bg: rgba(22, 22, 30, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --primary: #7b2cbf;
+            --primary-glow: rgba(123, 44, 191, 0.4);
+            --secondary: #00b4d8;
+            --secondary-glow: rgba(0, 180, 216, 0.4);
+            --accent: #ff007f;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --card-radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(123, 44, 191, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 180, 216, 0.12) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        header {
+            padding: 1.5rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 11, 15, 0.6);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header-title p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .user-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .btn {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: #9d4edd;
+            box-shadow: 0 6px 20px var(--primary-glow);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem 4rem;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+        }
+
+        /* Sidebar controls */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #fff;
+            border-left: 3px solid var(--secondary);
+            padding-left: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 8px rgba(0, 180, 216, 0.25);
+        }
+
+        /* Table Area */
+        .workspace-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .filters-container {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-select:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            border-radius: 20px;
+            padding: 8px 18px;
+        }
+
+        .table-card {
+            overflow: hidden;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            max-height: 65vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(15, 15, 22, 0.9);
+            padding: 16px 20px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            vertical-align: middle;
+            color: #e5e7eb;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .task-area-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(123, 44, 191, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(123, 44, 191, 0.3);
+        }
+
+        .badge-programación { background: rgba(0, 180, 216, 0.15); color: #90e0ef; border-color: rgba(0, 180, 216, 0.3); }
+        .badge-arte { background: rgba(255, 0, 127, 0.15); color: #f472b6; border-color: rgba(255, 0, 127, 0.3); }
+        .badge-animación { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); }
+        .badge-audio { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+        .badge-gestión { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+        .badge-qa { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+
+        .status-select, .priority-select {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            outline: none;
+            width: 100%;
+        }
+
+        .status-select:disabled, .priority-select:disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        .status-cell { min-width: 140px; }
+        .status-container {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .status-pendiente { background: rgba(156, 163, 175, 0.2); color: #d1d5db; border: 1px solid rgba(156, 163, 175, 0.3); }
+        .status-progreso { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-completada { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .priority-cell { min-width: 110px; }
+        .priority-container {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .priority-baja { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .priority-media { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .priority-alta { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 4px;
+        }
+
+        .btn-delete:hover {
+            color: var(--danger);
+        }
+
+        .btn-delete.hidden {
+            display: none;
+        }
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #fff;
+            text-align: center;
+        }
+
+        .modal-toggle-auth {
+            font-size: 0.85rem;
+            color: var(--secondary);
+            text-align: center;
+            margin-top: 1rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* Lock info banner */
+        .lock-banner {
+            background: rgba(123, 44, 191, 0.1);
+            border: 1px solid rgba(123, 44, 191, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #c084fc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Error Box */
+        .error-box {
+            display: none;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* KPI Dashboard views */
+        .dashboard-container {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .chart-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+            border-left: 2px solid var(--secondary);
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            header {
+                padding: 1.5rem 2rem;
+            }
+            main {
+                padding: 1.5rem 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>Cronograma de Desarrollo</h1>
+            <p>Sol: The Last Song — Gestión del Plan Operativo ICCA</p>
+        </div>
+        <div class="actions-bar">
+            <div class="user-status">
+                <span class="status-dot" id="user-status-dot"></span>
+                <span id="user-status-text">Cargando...</span>
+            </div>
+            <button class="btn" id="auth-btn" onclick="openAuthModal()">Iniciar Sesión</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sidebar controls -->
+        <div class="sidebar">
+            <!-- Lock banner for anonymous users -->
+            <div id="anonymous-lock-banner" class="lock-banner">
+                <span>🔒</span>
+                <span>Inicia sesión como miembro del equipo para agregar tareas, cambiar estados o ver KPIs.</span>
+            </div>
+
+            <!-- Add Task Panel (hidden or disabled if anonymous) -->
+            <div class="panel" id="add-task-panel">
+                <div class="panel-title">Agregar Nueva Tarea</div>
+                <form id="task-form" onsubmit="addTask(event)">
+                    <div class="form-group">
+                        <label for="new-task-name">Descripción de la Tarea</label>
+                        <input type="text" id="new-task-name" class="form-control" placeholder="Ej. Implementar doble salto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-task-area">Área / Disciplina</label>
+                        <select id="new-task-area" class="form-control" required>
+                            <option value="Programación">Programación</option>
+                            <option value="Arte">Arte 3D & 2D</option>
+                            <option value="Animación">Animación</option>
+                            <option value="Audio">Audio y Música</option>
+                            <option value="Gestión">Gestión y Producción</option>
+                            <option value="QA">Control de Calidad (QA)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-task-assignee">Responsable</label>
+                        <select id="new-task-assignee" class="form-control" required>
+                            <option value="Irving Gabriel Ocampo">Irving Gabriel Ocampo (Unreal Lead)</option>
+                            <option value="Jose Alejandro Miranda Proaño">Jose Alejandro Miranda Proaño (Unreal Jr)</option>
+                            <option value="Grace Daniela Cevallos Altamirano">Grace Daniela Cevallos Altamirano (Dir. Arte)</option>
+                            <option value="Ricardo Micael Jerez Nepas">Ricardo Micael Jerez Nepas (Productor)</option>
+                            <option value="Dylan Elian Hidalgo Hidalgo">Dylan Elian Hidalgo Hidalgo (Artista 3D)</option>
+                            <option value="Charlie Steven Salazar Jaen">Charlie Steven Salazar Jaen (Artista 3D)</option>
+                            <option value="Carlos Javier Martinez Angulo">Carlos Javier Martinez Angulo (Artista 2D)</option>
+                            <option value="David Alejandro Zurita Altamirano">David Alejandro Zurita Altamirano (Game Designer)</option>
+                            <option value="Graciela Amparito Altamirano Tayo">Graciela Amparito Altamirano Tayo (Contadora)</option>
+                            <option value="Externo / Cesión">Externo / Cesión de Derechos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-task-deadline">Semana Límite (1-52)</label>
+                        <input type="number" id="new-task-deadline" class="form-control" min="1" max="52" value="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-task-priority">Prioridad</label>
+                        <select id="new-task-priority" class="form-control">
+                            <option value="Alta">Alta</option>
+                            <option value="Media" selected>Media</option>
+                            <option value="Baja">Baja</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">Añadir Tarea</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Workspace Area -->
+        <div class="workspace-area">
+            <!-- Error Banner -->
+            <div id="error-box" class="error-box"></div>
+
+            <!-- Tabs (Tasks list vs Dashboard KPIs) -->
+            <div class="tab-bar">
+                <button class="tab-btn active" id="tab-tasks" onclick="switchTab('tasks')">📋 Lista de Tareas</button>
+                <button class="tab-btn" id="tab-kpis" onclick="switchTab('kpis')" style="display: none;">📊 KPIs de Producción</button>
+            </div>
+
+            <!-- TAB 1: TASKS LIST -->
+            <div id="content-tasks">
+                <!-- Filter Bar -->
+                <div class="filters-container" style="margin-bottom: 1.5rem;">
+                    <div class="search-box">
+                        <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar tarea o responsable..." oninput="applyFilters()">
+                    </div>
+                    <select id="filter-area" class="filter-select" onchange="applyFilters()">
+                        <option value="all">Todas las áreas</option>
+                        <option value="Programación">Programación</option>
+                        <option value="Arte">Arte</option>
+                        <option value="Animación">Animación</option>
+                        <option value="Audio">Audio</option>
+                        <option value="Gestión">Gestión</option>
+                        <option value="QA">QA</option>
+                    </select>
+                    <select id="filter-status" class="filter-select" onchange="applyFilters()">
+                        <option value="all">Todos los estados</option>
+                        <option value="No iniciado">Pendientes</option>
+                        <option value="En progreso">En progreso</option>
+                        <option value="Completado">Completadas</option>
+                    </select>
+                    <select id="filter-priority" class="filter-select" onchange="applyFilters()">
+                        <option value="all">Todas las prioridades</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                        <option value="Baja">Baja</option>
+                    </select>
+                </div>
+
+                <!-- Table Card -->
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%">Tarea</th>
+                                    <th style="width: 15%">Área</th>
+                                    <th style="width: 20%">Responsable</th>
+                                    <th style="width: 10%">Semana Límite</th>
+                                    <th style="width: 13%">Estado</th>
+                                    <th style="width: 12%">Prioridad</th>
+                                    <th style="width: 5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-table-body">
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Cargando tareas de Supabase...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: KPIs DASHBOARD -->
+            <div id="content-kpis" class="dashboard-container">
+                <div class="chart-card">
+                    <div class="chart-title">Avance por Disciplina</div>
+                    <canvas id="chart-disciplines"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Carga de Trabajo por Responsable</div>
+                    <canvas id="chart-workload"></canvas>
+                </div>
+                <div class="chart-card" style="grid-column: span 2;">
+                    <div class="chart-title">Distribución de Prioridades y Estados</div>
+                    <canvas id="chart-status-priority"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AUTHENTICATION MODAL -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeAuthModal()">×</button>
+            <div class="modal-title" id="auth-modal-title">Iniciar Sesión</div>
+            <form id="auth-form" onsubmit="handleAuth(event)">
+                <div class="form-group">
+                    <label for="auth-email">Correo Electrónico</label>
+                    <input type="email" id="auth-email" class="form-control" required placeholder="correo@ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Contraseña</label>
+                    <input type="password" id="auth-password" class="form-control" required placeholder="••••••••" minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;" id="auth-submit-btn">Ingresar</button>
+            </form>
+            <div class="modal-toggle-auth" id="auth-toggle-btn" onclick="toggleAuthMode()">¿No tienes cuenta? Regístrate aquí</div>
+        </div>
+    </div>
+
+    <script>
+        // Global Error Catcher to prevent silent crashes
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error("Global Error Caught:", message, "at", source, ":", lineno);
+            const errBox = document.getElementById('error-box');
+            if (errBox) {
+                errBox.style.display = 'block';
+                errBox.innerHTML = `<strong>⚠️ Error Interno del Script:</strong> ${message} <br><small>Línea ${lineno}:${colno} en ${source.split('/').pop()}</small>`;
+            }
+            return false;
+        };
+
+        // Supabase Initialization Credentials
+        const SUPABASE_URL = "https://whsitrsvfqbrwwnmaokm.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_2kbxC96lSIGuqujGgRBkZQ_o5TTSdwv";
+        let supabase;
+
+        let tasks = [];
+        let currentUser = null;
+        let isSignUpMode = false;
+        let activeTab = 'tasks';
+        let charts = {};
+
+        function showError(message, errDetails = "") {
+            const errBox = document.getElementById('error-box');
+            if (errBox) {
+                errBox.style.display = 'block';
+                errBox.innerHTML = `<strong>⚠️ Error de Conexión:</strong> ${message} <br><small style="opacity: 0.8">${errDetails}</small>`;
+            }
+            
+            document.getElementById('user-status-text').innerText = "Desconectado";
+            document.getElementById('tasks-table-body').innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger);">Error al cargar las tareas de la base de datos.</td></tr>`;
+        }
+
+        // Lifecycle init
+        window.addEventListener('load', async () => {
+            try {
+                if (!window.supabase) {
+                    throw new Error("La librería de Supabase no se cargó correctamente. Revisa tu conexión a internet.");
+                }
+                
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                await checkUserSession();
+                await fetchTasks();
+                setupRealtimeSubscription();
+            } catch (e) {
+                showError(e.message, e.stack || "");
+            }
+        });
+
+        // Check active login sessions
+        async function checkUserSession() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                
+                if (session) {
+                    currentUser = session.user;
+                    updateUserUI(true);
+                } else {
+                    currentUser = null;
+                    updateUserUI(false);
+                }
+            } catch (e) {
+                console.error("Auth Session Error:", e);
+                currentUser = null;
+                updateUserUI(false);
+            }
+        }
+
+        // Update UI based on logged user
+        function updateUserUI(loggedIn) {
+            const userDot = document.getElementById('user-status-dot');
+            const userText = document.getElementById('user-status-text');
+            const authBtn = document.getElementById('auth-btn');
+            const addPanel = document.getElementById('add-task-panel');
+            const lockBanner = document.getElementById('anonymous-lock-banner');
+            const tabKpis = document.getElementById('tab-kpis');
+
+            if (loggedIn) {
+                userDot.classList.add('active');
+                userText.innerText = currentUser.email;
+                authBtn.innerText = "Cerrar Sesión";
+                authBtn.setAttribute('onclick', 'handleLogout()');
+                authBtn.classList.add('btn-danger');
+
+                // Enable forms and remove lock
+                addPanel.style.opacity = "1";
+                addPanel.querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+                lockBanner.style.display = "none";
+                tabKpis.style.display = "block"; // Show private KPIs dashboard
+            } else {
+                userDot.classList.remove('active');
+                userText.innerText = "Modo de solo lectura";
+                authBtn.innerText = "Iniciar Sesión";
+                authBtn.setAttribute('onclick', 'openAuthModal()');
+                authBtn.classList.remove('btn-danger');
+
+                // Disable forms & show lock
+                addPanel.style.opacity = "0.4";
+                addPanel.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+                lockBanner.style.display = "flex";
+                tabKpis.style.display = "none"; // Hide KPIs dashboard
+                
+                // Reset tab if on KPIs
+                if (activeTab === 'kpis') {
+                    switchTab('tasks');
+                }
+            }
+            renderTasks();
+        }
+
+        // Fetch tasks list from Database
+        async function fetchTasks() {
+            try {
+                const { data, error } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .order('deadline', { ascending: true });
+
+                if (error) throw error;
+                
+                tasks = data;
+                renderTasks();
+                if (currentUser) {
+                    updateCharts();
+                }
+            } catch (e) {
+                showError("No se pudieron obtener las tareas de la base de datos.", e.message || e);
+            }
+        }
+
+        // Setup real-time listeners for collaboration
+        function setupRealtimeSubscription() {
+            try {
+                supabase.channel('public:tasks')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+                        if (payload.eventType === 'INSERT') {
+                            tasks.push(payload.new);
+                        } else if (payload.eventType === 'DELETE') {
+                            tasks = tasks.filter(t => t.id !== payload.old.id);
+                        } else if (payload.eventType === 'UPDATE') {
+                            const index = tasks.findIndex(t => t.id === payload.new.id);
+                            if (index !== -1) {
+                                tasks[index] = payload.new;
+                            }
+                        }
+                        renderTasks();
+                        if (currentUser) {
+                            updateCharts();
+                        }
+                    })
+                    .subscribe();
+            } catch (e) {
+                console.error("Realtime subscription failed:", e);
+            }
+        }
+
+        // Render Table Body
+        function renderTasks() {
+            const tableBody = document.getElementById('tasks-table-body');
+            
+            // Check if we are still waiting or if load failed
+            if (document.getElementById('error-box').style.display === 'block') {
+                return;
+            }
+
+            if (tasks.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No hay tareas creadas en la base de datos.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            tasks.forEach(task => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', task.id);
+
+                const areaClass = `badge-${task.area.toLowerCase().replace(/[^a-z]/g, '')}`;
+                
+                let statusClass = 'status-pendiente';
+                if (task.status === 'En progreso') statusClass = 'status-progreso';
+                if (task.status === 'Completado') statusClass = 'status-completada';
+
+                let priorityClass = 'priority-media';
+                if (task.priority === 'Alta') priorityClass = 'priority-alta';
+                if (task.priority === 'Baja') priorityClass = 'priority-baja';
+
+                const isDisabled = currentUser ? '' : 'disabled';
+                const isDeleteHidden = currentUser ? '' : 'hidden';
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${task.name}</td>
+                    <td><span class="task-area-badge ${areaClass}">${task.area}</span></td>
+                    <td style="color: var(--text-muted);">${task.assignee}</td>
+                    <td style="text-align: center; font-weight: 700; color: var(--secondary)">Semana ${task.deadline}</td>
+                    <td class="status-cell">
+                        <div class="status-container ${statusClass}">
+                            <select class="status-select" onchange="updateTaskStatus(${task.id}, this.value)" ${isDisabled}>
+                                <option value="No iniciado" ${task.status === 'No iniciado' ? 'selected' : ''}>Pendiente</option>
+                                <option value="En progreso" ${task.status === 'En progreso' ? 'selected' : ''}>En progreso</option>
+                                <option value="Completado" ${task.status === 'Completado' ? 'selected' : ''}>Completada</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td class="priority-cell">
+                        <div class="priority-container ${priorityClass}">
+                            <select class="priority-select" onchange="updateTaskPriority(${task.id}, this.value)" ${isDisabled}>
+                                <option value="Alta" ${task.priority === 'Alta' ? 'selected' : ''}>Alta</option>
+                                <option value="Media" ${task.priority === 'Media' ? 'selected' : ''}>Media</option>
+                                <option value="Baja" ${task.priority === 'Baja' ? 'selected' : ''}>Baja</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn-delete ${isDeleteHidden}" onclick="deleteTask(${task.id})" title="Eliminar Tarea">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            applyFilters();
+        }
+
+        // Add task event
+        async function addTask(event) {
+            event.preventDefault();
+            if (!currentUser) return;
+
+            const name = document.getElementById('new-task-name').value;
+            const area = document.getElementById('new-task-area').value;
+            const assignee = document.getElementById('new-task-assignee').value;
+            const deadline = parseInt(document.getElementById('new-task-deadline').value);
+            const priority = document.getElementById('new-task-priority').value;
+
+            const { error } = await supabase
+                .from('tasks')
+                .insert([{ name, area, assignee, deadline, status: 'No iniciado', priority }]);
+
+            if (error) {
+                alert("Error al insertar tarea: " + error.message);
+            } else {
+                document.getElementById('task-form').reset();
+            }
+        }
+
+        // Update status of tasks
+        async function updateTaskStatus(id, status) {
+            if (!currentUser) return;
+            const { error } = await supabase
+                .from('tasks')
+                .update({ status })
+                .eq('id', id);
+
+            if (error) {
+                alert("Error al actualizar estado: " + error.message);
+            }
+        }
+
+        // Update priority of tasks
+        async function updateTaskPriority(id, priority) {
+            if (!currentUser) return;
+            const { error } = await supabase
+                .from('tasks')
+                .update({ priority })
+                .eq('id', id);
+
+            if (error) {
+                alert("Error al actualizar prioridad: " + error.message);
+            }
+        }
+
+        // Delete task
+        async function deleteTask(id) {
+            if (!currentUser) return;
+            if (confirm("¿Estás seguro de que quieres eliminar esta tarea?")) {
+                const { error } = await supabase
+                    .from('tasks')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    alert("Error al eliminar la tarea: " + error.message);
+                }
+            }
+        }
+
+        // Filter engine
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const area = document.getElementById('filter-area').value;
+            const status = document.getElementById('filter-status').value;
+            const priority = document.getElementById('filter-priority').value;
+
+            const rows = document.querySelectorAll('#tasks-table-body tr');
+
+            rows.forEach(row => {
+                const id = parseInt(row.getAttribute('data-id'));
+                const task = tasks.find(t => t.id === id);
+                
+                if (task) {
+                    const matchesSearch = task.name.toLowerCase().includes(search) || task.assignee.toLowerCase().includes(search);
+                    const matchesArea = area === 'all' || task.area === area;
+                    const matchesStatus = status === 'all' || task.status === status;
+                    const matchesPriority = priority === 'all' || task.priority === priority;
+
+                    if (matchesSearch && matchesArea && matchesStatus && matchesPriority) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Tab layout switcher
+        function switchTab(tab) {
+            activeTab = tab;
+            const tabTasks = document.getElementById('tab-tasks');
+            const tabKpis = document.getElementById('tab-kpis');
+            const contentTasks = document.getElementById('content-tasks');
+            const contentKpis = document.getElementById('content-kpis');
+
+            if (tab === 'tasks') {
+                tabTasks.classList.add('active');
+                tabKpis.classList.remove('active');
+                contentTasks.style.display = 'block';
+                contentKpis.style.display = 'none';
+            } else {
+                tabTasks.classList.remove('active');
+                tabKpis.classList.add('active');
+                contentTasks.style.display = 'none';
+                contentKpis.style.display = 'grid';
+                setTimeout(updateCharts, 50); // Make sure sizes render correctly
+            }
+        }
+
+        // MODAL AUTH SYSTEM
+        function openAuthModal() {
+            document.getElementById('auth-modal').style.display = 'flex';
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').style.display = 'none';
+        }
+
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            const title = document.getElementById('auth-modal-title');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const toggleBtn = document.getElementById('auth-toggle-btn');
+
+            if (isSignUpMode) {
+                title.innerText = "Registrar Cuenta";
+                submitBtn.innerText = "Registrar";
+                toggleBtn.innerText = "¿Ya tienes cuenta? Inicia sesión";
+            } else {
+                title.innerText = "Iniciar Sesión";
+                submitBtn.innerText = "Ingresar";
+                toggleBtn.innerText = "¿No tienes cuenta? Regístrate aquí";
+            }
+        }
+
+        async function handleAuth(event) {
+            event.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+
+            try {
+                if (isSignUpMode) {
+                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    alert("Registro exitoso. Revisa tu correo o inicia sesión con tus datos.");
+                    toggleAuthMode();
+                } else {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    currentUser = data.user;
+                    closeAuthModal();
+                    updateUserUI(true);
+                }
+            } catch (e) {
+                alert("Error de autenticación: " + (e.message || e));
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+                currentUser = null;
+                updateUserUI(false);
+            } catch (e) {
+                alert("Error al cerrar sesión: " + e.message);
+            }
+        }
+
+        // CHARTS DATA PROCESSING (KPIs)
+        function updateCharts() {
+            if (!currentUser || activeTab !== 'kpis') return;
+
+            // 1. Chart 1: Avance por disciplina
+            const areas = ['Programación', 'Arte', 'Animación', 'Audio', 'Gestión', 'QA'];
+            const areaProgress = areas.map(area => {
+                const areaTasks = tasks.filter(t => t.area.includes(area) || (area === 'Arte' && t.area === 'Arte'));
+                if (areaTasks.length === 0) return 0;
+                const completed = areaTasks.filter(t => t.status === 'Completado').length;
+                return Math.round((completed / areaTasks.length) * 100);
+            });
+
+            renderBarChart('chart-disciplines', areas, areaProgress, '% Completado', '#00b4d8');
+
+            // 2. Chart 2: Carga de trabajo por persona
+            const assignees = [...new Set(tasks.map(t => t.assignee))];
+            const tasksPerAssignee = assignees.map(name => tasks.filter(t => t.assignee === name).length);
+
+            renderBarChart('chart-workload', assignees.map(n => n.split(' ')[0]), tasksPerAssignee, 'Tareas asignadas', '#7b2cbf');
+
+            // 3. Chart 3: Estados y prioridades
+            const statusCounts = {
+                'Pendiente': tasks.filter(t => t.status === 'No iniciado').length,
+                'En progreso': tasks.filter(t => t.status === 'En progreso').length,
+                'Completada': tasks.filter(t => t.status === 'Completado').length
+            };
+
+            const priorityCounts = {
+                'Alta': tasks.filter(t => t.priority === 'Alta').length,
+                'Media': tasks.filter(t => t.priority === 'Media').length,
+                'Baja': tasks.filter(t => t.priority === 'Baja').length
+            };
+
+            renderDoubleDoughnut('chart-status-priority', statusCounts, priorityCounts);
+        }
+
+        function renderBarChart(canvasId, labels, data, datasetLabel, color) {
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: datasetLabel,
+                        data: data,
+                        backgroundColor: color,
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderDoubleDoughnut(canvasId, statusData, priorityData) {
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            charts[canvasId] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [...Object.keys(statusData), ...Object.keys(priorityData)],
+                    datasets: [
+                        {
+                            label: 'Estados',
+                            data: Object.values(statusData),
+                            backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                            borderWidth: 2,
+                            borderColor: '#0b0b0f'
+                        },
+                        {
+                            label: 'Prioridades',
+                            data: Object.values(priorityData),
+                            backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                            borderWidth: 2,
+                            borderColor: '#0b0b0f',
+                            weight: 0.6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#f3f4f6' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
